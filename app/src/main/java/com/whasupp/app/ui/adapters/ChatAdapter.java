@@ -22,9 +22,17 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         this.myName = (myName != null) ? myName : "Anonimo";
     }
 
+    // Para mensajes nuevos en tiempo real (MQTT)
     public void addMessage(Message msg) {
         messages.add(msg);
-        notifyDataSetChanged(); // Refresca la lista completa
+        notifyItemInserted(messages.size() - 1);
+    }
+
+    // --- NUEVO: Para cargar todo el historial de golpe (Firebase) ---
+    public void setMessages(List<Message> history) {
+        this.messages.clear(); // Limpiamos para no repetir
+        this.messages.addAll(history);
+        notifyDataSetChanged(); // Pintamos todo de nuevo
     }
 
     @Override
@@ -61,8 +69,6 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     @Override
     public int getItemCount() { return messages.size(); }
 
-    // --- ViewHolders ---
-
     static class SentHolder extends RecyclerView.ViewHolder {
         TextView content;
         SentHolder(View v) {
@@ -71,7 +77,7 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         }
         void bind(Message m) {
             content.setText(m.getContent());
-            content.setTextColor(Color.BLACK); // Aseguramos legibilidad
+            content.setTextColor(Color.BLACK);
         }
     }
 

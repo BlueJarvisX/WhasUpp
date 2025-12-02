@@ -26,30 +26,23 @@ public class ChatActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_chat);
 
-        // 1. Ocultar la ActionBar del sistema para usar nuestro Header con foto
-        if (getSupportActionBar() != null) {
-            getSupportActionBar().hide();
-        }
+        if (getSupportActionBar() != null) getSupportActionBar().hide();
 
-        // 2. OBTENER DATOS DEL AMIGO (Desde el Intent)
+        // 1. Datos del Amigo
         String chatName = getIntent().getStringExtra("USER_NAME");
         String chatPhoto = getIntent().getStringExtra("USER_PHOTO");
-        String chatPartnerUid = getIntent().getStringExtra("USER_UID"); // Vital para la sala privada
+        String chatPartnerUid = getIntent().getStringExtra("USER_UID");
 
-        // 3. CONFIGURAR EL HEADER PERSONALIZADO
+        // UI Header
         TextView tvTitle = findViewById(R.id.tvChatTitle);
         CircleImageView imgAvatar = findViewById(R.id.imgChatAvatar);
 
-        if (chatName != null) {
-            tvTitle.setText(chatName);
-        }
-
-        // Cargar foto del amigo con Glide
+        if (chatName != null) tvTitle.setText(chatName);
         if (chatPhoto != null && !chatPhoto.isEmpty()) {
             Glide.with(this).load(chatPhoto).into(imgAvatar);
         }
 
-        // 4. OBTENER MIS DATOS (Usuario Actual)
+        // 2. Mis Datos
         String myName = "Anonimo";
         String myUid = "";
         if (FirebaseAuth.getInstance().getCurrentUser() != null) {
@@ -57,28 +50,38 @@ public class ChatActivity extends AppCompatActivity {
             myUid = FirebaseAuth.getInstance().getCurrentUser().getUid();
         }
 
-        // 5. CONFIGURAR INTERFAZ (UI)
+        // 3. Setup RecyclerView
         etMessage = findViewById(R.id.etMessage);
         FloatingActionButton btnSend = findViewById(R.id.btnSend);
         RecyclerView recycler = findViewById(R.id.recyclerChat);
 
         adapter = new ChatAdapter(myName);
         LinearLayoutManager layoutManager = new LinearLayoutManager(this);
-        layoutManager.setStackFromEnd(true); // El chat empieza desde abajo
+        layoutManager.setStackFromEnd(true); // El chat empieza abajo
         recycler.setLayoutManager(layoutManager);
         recycler.setAdapter(adapter);
 
-        // 6. INICIALIZAR VIEWMODEL Y SALA PRIVADA
+        // 4. ViewModel
         viewModel = new ViewModelProvider(this).get(ChatVM.class);
 
-        // Aquí se crea la "Sala Secreta" entre tú y tu amigo
         if (chatPartnerUid != null && !myUid.isEmpty()) {
             viewModel.setupChat(myUid, chatPartnerUid);
         } else {
-            Toast.makeText(this, "Error: No se pudo identificar al usuario", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Error de usuario", Toast.LENGTH_SHORT).show();
         }
 
-        // Observar mensajes entrantes (del historial o nuevos)
+        // --- OBSERVADOR 1: HISTORIAL COMPLETO ---
+        viewModel.getHistoryMessages().observe(this, historyList -> {
+            if (historyList != null) {
+                // Aquí cargamos todos los mensajes antiguos de una sola vez
+                adapter.setMessages(historyList);
+                if (!historyList.isEmpty()) {
+                    recycler.scrollToPosition(historyList.size() - 1);
+                }
+            }
+        });
+
+        // --- OBSERVADOR 2: NUEVOS MENSAJES (En Vivo) ---
         viewModel.getIncomingMessage().observe(this, message -> {
             if(message != null) {
                 adapter.addMessage(message);
@@ -86,7 +89,7 @@ public class ChatActivity extends AppCompatActivity {
             }
         });
 
-        // 7. LÓGICA DE ENVÍO
+        // 5. Enviar
         final String senderName = myName;
         btnSend.setOnClickListener(v -> {
             String txt = etMessage.getText().toString().trim();
